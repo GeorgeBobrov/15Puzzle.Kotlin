@@ -13,12 +13,11 @@ import android.view.ViewGroup
 import android.view.animation.LinearInterpolator
 import android.view.animation.PathInterpolator
 import android.widget.Button
-import android.widget.RelativeLayout
-import android.widget.TextView
-import androidx.annotation.ColorInt
 import androidx.appcompat.app.AppCompatActivity
 import kotlinx.android.synthetic.main.activity_main.*
 import java.util.*
+import kotlin.math.roundToLong
+import kotlinx.coroutines.*
 
 class MainActivity : AppCompatActivity() {
 
@@ -57,8 +56,8 @@ class MainActivity : AppCompatActivity() {
 	val MaxMoveAniDuration = 150f
 	val MinMoveAniDuration = 1f
 
-	var TileClickListener =
-		View.OnClickListener { sender -> OnTilePressed(sender) }
+//	var TileClickListener =
+//		View.OnClickListener { sender -> OnTilePressed(sender) }
 
 	var TileTouchListener = OnTouchListener { sender, event ->
 		if (event.action == MotionEvent.ACTION_DOWN) {
@@ -181,19 +180,31 @@ class MainActivity : AppCompatActivity() {
 	}
 
 
-	fun OnTilePressed(sender: View) {
+	fun OnTilePressed(sender: View)  = GlobalScope.async()
+	{
 		val SenderTile = sender as Button
 		if (Mode == TMode.JustShuffled)
 			SetMode(TMode.Game)
 		val WasMoved: Boolean =
-			TryMoveTile(ActualPosition(SenderTile), MaxMoveAniDuration, false)
+			TryMoveTile(ActualPosition(SenderTile), MaxMoveAniDuration,false).await()
 		if (WasMoved)
 			CheckPuzzleMatched()
 	}
 
 
-	fun TryMoveTile(TilePosition: Int, MoveAniDuration: Float, WaitAnimationEnd: Boolean): Boolean
+	fun TryMoveTile(TilePosition: Int, MoveAniDuration: Float, WaitAnimationEnd: Boolean): Deferred<Boolean> = GlobalScope.async()
 	{
+		fun MoveTile(OldPosition: Int, NewPosition: Int) = GlobalScope.async()
+		{
+			val temp = Tiles[NewPosition]
+			Tiles[NewPosition] = Tiles[OldPosition]
+			Tiles[OldPosition] = temp
+
+			val TileNewPos = Tiles[NewPosition]
+			if (TileNewPos != null)
+				AnimateMoveTile(TileNewPos, MoveAniDuration, WaitAnimationEnd).await()
+		}
+
 		var WasMoved = false
 		val ColPressed = TilePosition % Base
 		val RowPressed = TilePosition / Base
@@ -203,15 +214,13 @@ class MainActivity : AppCompatActivity() {
 				if (Row > RowPressed) //Move tiles down
 					for (RowToMove in Row - 1 downTo RowPressed)
 					{
-						MoveTile(ind(RowToMove, ColPressed), ind(RowToMove + 1, ColPressed),
-							MoveAniDuration, WaitAnimationEnd)
+						MoveTile(ind(RowToMove, ColPressed), ind(RowToMove + 1, ColPressed)).await()
 						WasMoved = true
 					}
 				if (RowPressed > Row) //Move tiles up
 					for (RowToMove in Row + 1..RowPressed)
 					{
-						MoveTile(ind(RowToMove, ColPressed), ind(RowToMove - 1, ColPressed),
-							MoveAniDuration, WaitAnimationEnd)
+						MoveTile(ind(RowToMove, ColPressed), ind(RowToMove - 1, ColPressed)).await()
 						WasMoved = true
 					}
 			}
@@ -222,34 +231,25 @@ class MainActivity : AppCompatActivity() {
 				if (Col > ColPressed) //Move tiles right
 					for (ColToMove in Col - 1 downTo ColPressed)
 					{
-						MoveTile(ind(RowPressed, ColToMove), ind(RowPressed, ColToMove + 1),
-							MoveAniDuration, WaitAnimationEnd)
+						MoveTile(ind(RowPressed, ColToMove), ind(RowPressed, ColToMove + 1)).await()
 						WasMoved = true
 					}
 				if (ColPressed > Col) //Move tiles left
 					for (ColToMove in Col + 1..ColPressed)
 					{
-						MoveTile(ind(RowPressed, ColToMove), ind(RowPressed, ColToMove - 1),
-							MoveAniDuration, WaitAnimationEnd)
+						MoveTile(ind(RowPressed, ColToMove), ind(RowPressed, ColToMove - 1)).await()
 						WasMoved = true
 					}
 			}
-		return WasMoved
+
+		WasMoved
+
+
 	}
 
 
-	fun MoveTile(OldPosition: Int, NewPosition: Int, MoveAniDuration: Float, WaitAnimationEnd: Boolean)
-	{
-		val temp = Tiles[NewPosition]
-		Tiles[NewPosition] = Tiles[OldPosition]
-		Tiles[OldPosition] = temp
-		val TileNewPos = Tiles[NewPosition]
-		if (TileNewPos != null)
-			AnimateMoveTile(TileNewPos, MoveAniDuration, WaitAnimationEnd)
-	}
 
-
-	fun AnimateMoveTile(ATile: Button, MoveAniDuration: Float, WaitAnimationEnd: Boolean )
+	fun AnimateMoveTile(ATile: Button, MoveAniDuration: Float, WaitAnimationEnd: Boolean ) = GlobalScope.async()
 	{
 		val ActPos = ActualPosition(ATile)
 		val NewCol = ActPos % Base
@@ -267,18 +267,18 @@ class MainActivity : AppCompatActivity() {
 			ATile.translationX = X.toFloat()
 			ATile.translationY = Y.toFloat()
 		}
+
+		if (WaitAnimationEnd && (MoveAniDuration > 0))
+			Thread.sleep(MoveAniDuration.toLong() + 50L)
 	}
 
 
 	fun CheckPuzzleMatched()
 	{
 		var LPuzzleMatched = true
-		for (i in Tiles.indices)
-		{
-			val Tile = Tiles[i]
+		for ((i, Tile) in Tiles.withIndex())
 			if (Tile != null)
 			{
-
 				val TextNumber = Tile.text.toString().toInt()
 				if (TextNumber - 1 != ActualPosition(Tiles[i]))
 				{
@@ -286,7 +286,6 @@ class MainActivity : AppCompatActivity() {
 					break
 				}
 			}
-		}
 
 		if (LPuzzleMatched && Mode == TMode.Game)
 		{
@@ -306,23 +305,28 @@ class MainActivity : AppCompatActivity() {
 	fun ButtonShuffleOnClick(sender: View?)
 	{
 		AnimateNormalizeTilesColor()
-		var NewI = 0
-		val MoveCount = Tiles.size * Tiles.size
-		var MoveAniDuration = MaxMoveAniDuration
-		for (i in 1..MoveCount)
-		{
-			if (i <= 10)
-				MoveAniDuration = MinMoveAniDuration + MaxMoveAniDuration * (1 - i / 10.0f)
-			if (i >= MoveCount - 10)
-				MoveAniDuration = MinMoveAniDuration + MaxMoveAniDuration / 2 * (1 - (MoveCount - i) / 10.0f)
-			if (i > 20 && i < MoveCount - 20)
-				MoveAniDuration =	if (i % 10 == 0) MinMoveAniDuration else 0f
 
-			var WasMoved: Boolean
-			do {
-				NewI = RandomGen.nextInt(Tiles.size)
-				WasMoved = TryMoveTile(NewI, 0f, true)
-			} while (!WasMoved)
+		GlobalScope.async()
+		{
+			var NewI = 0
+			val MoveCount = Tiles.size * Tiles.size
+			var MoveAniDuration = MaxMoveAniDuration
+
+			for (i in 1..MoveCount)
+			{
+				if (i <= 10)
+					MoveAniDuration = MinMoveAniDuration + MaxMoveAniDuration * (1 - i / 10.0f)
+				if (i >= MoveCount - 10)
+					MoveAniDuration = MinMoveAniDuration + MaxMoveAniDuration / 2 * (1 - (MoveCount - i) / 10.0f)
+				if (i > 20 && i < MoveCount - 20)
+					MoveAniDuration =	if (i % 10 == 0) MinMoveAniDuration else 0f
+
+				var WasMoved: Boolean
+				do {
+					NewI = RandomGen.nextInt(Tiles.size)
+					WasMoved = TryMoveTile(NewI, MoveAniDuration, true).await()
+				} while (!WasMoved)
+			}
 		}
 
 		SetMaxTime()
@@ -403,28 +407,27 @@ class MainActivity : AppCompatActivity() {
 		val Width = PanelClient.measuredWidth
 		if (Height > Width)
 		{
-			SpaceX = Math.round(Width.toFloat() / 20).toLong()
-			TileSize = Math.round((Width - SpaceX * 2).toFloat() / Base).toLong()
-			SpaceY = SpaceX + Math.round((Height - Width).toFloat() / 2)
+			SpaceX = (Width / 20f).roundToLong()
+			TileSize = ((Width - SpaceX * 2f) / Base).roundToLong()
+			SpaceY = SpaceX + ((Height - Width).toFloat() / 2f).roundToLong()
 		} else
 		{
-			SpaceY = Math.round(Height.toFloat() / 20).toLong()
-			TileSize = Math.round((Height - SpaceY * 2).toFloat() / Base).toLong()
-			SpaceX = SpaceY + Math.round((Width - Height).toFloat() / 2)
+			SpaceY = (Height / 20f).roundToLong()
+			TileSize = ((Height - SpaceY * 2f) / Base).roundToLong()
+			SpaceX = SpaceY + ((Width - Height) / 2f).roundToLong()
 		}
-		TileSpacing = Math.round(TileSize * 0.06)
-		TileSize = Math.round(TileSize * 0.94)
-		SpaceX = SpaceX + Math.round(TileSpacing.toFloat() / 2)
-		SpaceY = SpaceY + Math.round(TileSpacing.toFloat() / 2)
+		TileSpacing = (TileSize * 0.06).roundToLong()
+		TileSize = (TileSize * 0.94).roundToLong()
+		SpaceX = SpaceX + (TileSpacing / 2f).roundToLong()
+		SpaceY = SpaceY + (TileSpacing / 2f).roundToLong()
 	}
 
 	fun AnimatePlaceTilesFast()
 	{
 		CalcConsts()
 		Log.d("Animate", "PlaceTilesFast")
-		for (i in Tiles.indices)
-		{
-			val Tile = Tiles[i]
+
+		for ((i, Tile) in Tiles.withIndex())
 			if (Tile != null)
 			{
 				val delay = 30L * i //delay for tile
@@ -448,15 +451,12 @@ class MainActivity : AppCompatActivity() {
 				AnimateFloatDelay(Tile, "translationX", X.toFloat(), 200, delay)
 				AnimateFloatDelay(Tile, "translationY", Y.toFloat(), 100, delay)
 			}
-		}
 	}
 
 	fun AnimateTilesDisappeare()
 	{
 		var LastTile: Button? = null
-		for (i in Tiles.indices)
-		{
-			val Tile = Tiles[i]
+		for ((i, Tile) in Tiles.withIndex())
 			if (Tile != null)
 			{
 				val delay = 30L * i //delay for tile
@@ -475,7 +475,6 @@ class MainActivity : AppCompatActivity() {
 //		   	AnimateFloatDelay(Tile, "alpha", 0, 400, 100 + delay);
 				LastTile = Tile
 			}
-		}
 
 //		Log.d("ClosingAnimation", " = " + ((Boolean)ClosingAnimation).toString() +
 //				" LastTile =" + ((LastTile == null)? "null": LastTile.toString())
@@ -496,9 +495,7 @@ class MainActivity : AppCompatActivity() {
 
 	fun AnimatePrepareBeforePlace()
 	{
-		for (i in Tiles.indices)
-		{
-			val Tile = Tiles[i]
+		for ((i, Tile) in Tiles.withIndex())
 			if (Tile != null)
 			{
 				val ScaleX = TileSize.toFloat() / Tile.layoutParams.width
@@ -514,10 +511,8 @@ class MainActivity : AppCompatActivity() {
 				Tile.translationX = X + Math.round(TileSize / 2.0).toFloat()
 				Tile.translationY = Y + TileSize.toFloat()
 			}
-		}
-		for (i in Tiles.indices)
-		{
-			val Tile = Tiles[i]
+
+		for ((i, Tile) in Tiles.withIndex())
 			if (Tile != null)
 			{
 				val delay = 30L * i //delay for tile
@@ -527,13 +522,10 @@ class MainActivity : AppCompatActivity() {
 				AnimateFloatDelay(Tile, "rotation", 0f, 400, delay)
 				AnimateFloatDelay(Tile, "alpha", 1f, 400, 100 + delay)
 			}
-		}
 	}
 
 	fun AnimateBaseNotChanged() {
-		for (i in Tiles.indices)
-		{
-			val Tile = Tiles[i]
+		for ((i, Tile) in Tiles.withIndex())
 			if (Tile != null)
 			{
 				val delay = 30L * i //delay for tile
@@ -544,14 +536,11 @@ class MainActivity : AppCompatActivity() {
 				AnimateFloatDelay(Tile, "scaleX", OrigScaleX, 300, 350 + delay, outBack)
 				AnimateFloatDelay(Tile, "scaleY", OrigScaleY, 300, 350 + delay, outBack)
 			}
-		}
 	}
 
 
 	fun AnimatePuzzleMatched() {
-		for (i in Tiles.indices)
-		{
-			val Tile = Tiles[i]
+		for ((i, Tile) in Tiles.withIndex())
 			if (Tile != null)
 			{
 				val delay = 30L * i //delay for tile
@@ -568,13 +557,10 @@ class MainActivity : AppCompatActivity() {
 				colorAnimation.repeatCount = 0
 				colorAnimation.start()
 			}
-		}
 	}
 
 	fun AnimateTimeRunningOut() {
-		for (i in Tiles.indices)
-		{
-			val Tile = Tiles[i]
+		for ((i, Tile) in Tiles.withIndex())
 			if (Tile != null)
 			{
 //				Tile.setBackgroundTintList(ColorStateList.valueOf(/*darkorange*/0xFFFF8C00));
@@ -589,13 +575,10 @@ class MainActivity : AppCompatActivity() {
 				colorAnimation.repeatMode = ObjectAnimator.REVERSE
 				colorAnimation.start()
 			}
-		}
 	}
 
 	fun AnimateTimeOver() {
-		for (i in Tiles.indices)
-		{
-			val Tile = Tiles[i]
+		for ((i, Tile) in Tiles.withIndex())
 			if (Tile != null)
 			{
 				val delay = 30L * i //delay for tile
@@ -610,13 +593,10 @@ class MainActivity : AppCompatActivity() {
 				colorAnimation.repeatCount = 0
 				colorAnimation.start()
 			}
-		}
 	}
 
 	fun AnimateNormalizeTilesColor() {
-		for (i in Tiles.indices)
-		{
-			val Tile = Tiles[i]
+		for ((i, Tile) in Tiles.withIndex())
 			if (Tile != null)
 			{
 				val delay = 30L * i //delay for tile
@@ -631,7 +611,6 @@ class MainActivity : AppCompatActivity() {
 				colorAnimation.repeatCount = 0
 				colorAnimation.start()
 			}
-		}
 	}
 
 
