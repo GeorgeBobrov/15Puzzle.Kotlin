@@ -1,10 +1,13 @@
 package com.example.k15puzzle
 
-import android.animation.*
-import android.animation.Animator.AnimatorListener
+import android.animation.ArgbEvaluator
+import android.animation.ObjectAnimator
+import android.animation.TimeInterpolator
+import android.animation.ValueAnimator
 import android.content.res.ColorStateList
 import android.os.Bundle
 import android.os.Handler
+import android.os.Looper
 import android.util.Log
 import android.view.MotionEvent
 import android.view.View
@@ -15,56 +18,58 @@ import android.view.animation.PathInterpolator
 import android.widget.Button
 import androidx.appcompat.app.AppCompatActivity
 import kotlinx.android.synthetic.main.activity_main.*
+import kotlinx.coroutines.*
+import java.text.SimpleDateFormat
 import java.util.*
 import kotlin.math.roundToLong
-import kotlinx.coroutines.*
 
 class MainActivity : AppCompatActivity() {
 
-	enum class TMode {
+	enum class Mode {
 		Game, GameOver, JustShuffled, PuzzleMatched
 	}
 
-	var Base = 0
-	var Mode: TMode? = null
+	private var base = 0
+	private var mode: Mode? = null
 
-	var Tiles = arrayOfNulls<Button?>(0)
-	var TileSize: Long = 0
-	var TileSpacing: Long = 0
-	var SpaceX: Long = 0
-	var SpaceY: Long = 0
+	var tiles = arrayOfNulls<Button?>(0)
+	var tileSize: Long = 0
+	var tileSpacing: Long = 0
+	var spaceX: Long = 0
+	var spaceY: Long = 0
 
-	val TileFillNormalColor1 = 0xFFFFE4C4.toInt() //bisque
-	val TileFillNormalColor2 = 0xFFABE024.toInt()
+	val tileFillNormalColor1 = 0xFFFFE4C4.toInt() //bisque
+	val tileFillNormalColor2 = 0xFFABE024.toInt()
 
-	var LastResizeTime: Long = 0
-	var LastTapTime: Long = 0
-	var ClosingAnimation = false
-	var TimeRemaining = 0
-	var PanelDebugMaximumHeight = 0
-	var ResizeCount = 0
+	var lastResizeTime: Long = 0
+	var lastTapTime: Long = 0
+	var closingAnimation = false
+	var timeRemaining = 0
+	var panelDebugMaximumHeight = 0
+	var resizeCount = 0
 
-	var TimerTime = Handler()
-	var TimerResize = Handler()
-	var TimerCreateTiles = Handler()
-	var TimerTimeRunnable = Runnable { TimerTimeTimer() }
-	var TimerResizeRunnable = Runnable { TimerResizeTimer() }
-	var TimerCreateTilesRunnable = Runnable { TimerCreateTilesTimer() }
+	var timerTime = Handler()
+	var timerResize = Handler()
+	var timerCreateTiles = Handler()
+	var timerTimeRunnable = Runnable { timerTimeTimer() }
+	var timerResizeRunnable = Runnable { timerResizeTimer() }
+	var timerCreateTilesRunnable = Runnable { timerCreateTilesTimer() }
 
-	private val RandomGen = Random()
+	private val randomGen = Random()
 
-	val MaxMoveAniDuration = 150f
-	val MinMoveAniDuration = 1f
+	val maxMoveAniDuration = 150f
+	val minMoveAniDuration = 1f
 
-//	var TileClickListener =
+//	var tileClickListener =
 //		View.OnClickListener { sender -> OnTilePressed(sender) }
 
-	var TileTouchListener = OnTouchListener { sender, event ->
+	var tileTouchListener = OnTouchListener { sender, event ->
+		val value = super.onTouchEvent(event)
 		if (event.action == MotionEvent.ACTION_DOWN) {
-			OnTilePressed(sender)
+			onTilePressed(sender)
 			return@OnTouchListener true
 		}
-		false
+		value
 	}
 
 	var linear: TimeInterpolator = LinearInterpolator()
@@ -77,323 +82,380 @@ class MainActivity : AppCompatActivity() {
 		super.onCreate(savedInstanceState)
 		setContentView(R.layout.activity_main)
 
-		LastResizeTime =	System.currentTimeMillis() //To prevent resize on start on Android
+		lastResizeTime =	System.currentTimeMillis() //To prevent resize on start on Android
 
-		PanelClient.viewTreeObserver.addOnGlobalLayoutListener { PanelClientResize() }
+		panelClient.viewTreeObserver.addOnGlobalLayoutListener { panelClientResize() }
 
 //		LinearGradient linearGradient = new LinearGradient();
+		Log.d("onCreate","Thread.currentThread()=${Thread.currentThread()}")
 
-		SetBase(4)
+		setBase(4)
 	}
 
 
-	fun SetMode(Value: TMode)
+	fun setMode(value: Mode)
 	{
-		Mode = Value
-		if (Mode == TMode.Game)
-			TimerTime.postDelayed(TimerTimeRunnable, 1000)
+		mode = value
+		if (mode == Mode.Game)
+			timerTime.postDelayed(timerTimeRunnable, 1000)
 		else
-			TimerTime.removeCallbacks(TimerTimeRunnable)
+			timerTime.removeCallbacks(timerTimeRunnable)
 	}
 
 
-	fun ButtonBaseOnClick(sender: View)
+	fun buttonBaseOnClick(sender: View)
 	{
-		val SenderButton = sender as Button
-		val LBase = SenderButton.text[0].toString().toInt()
-		SetBase(LBase)
+		val senderButton = sender as Button
+		val lBase = senderButton.text[0].toString().toInt()
+		setBase(lBase)
 	}
 
-	fun SetBase(Value: Int)
+	fun setBase(value: Int)
 	{
-		if (Value == Base)
+		if (value == base)
 		{
-			AnimateBaseNotChanged()
+			animateBaseNotChanged()
 			return
 		}
-		SetMode(TMode.GameOver)
-		AnimateTilesDisappeare()
-		Base = Value
-		SetMaxTime()
-		val delay = if (Tiles.size > 0) (520 + 30L * Tiles.size) else (200L)
-		TimerCreateTiles.postDelayed(TimerCreateTilesRunnable, delay)
+		setMode(Mode.GameOver)
+		animateTilesDisappeare()
+		base = value
+		setMaxTime()
+		val delay = if (tiles.size > 0) (520 + 30L * tiles.size) else (200L)
+		timerCreateTiles.postDelayed(timerCreateTilesRunnable, delay)
 	}
 
-	fun TimerCreateTilesTimer()
+	fun timerCreateTilesTimer()
 	{
-		CreateTiles()
-		AnimatePrepareBeforePlace()
-		AnimatePlaceTilesFast()
+		createTiles()
+		animatePrepareBeforePlace()
+		animatePlaceTilesFast()
 	}
 
-	fun CreateTiles()
+	fun createTiles()
 	{
-		for (i in Tiles.indices)
-		if (Tiles[i] != null)
+		for (i in tiles.indices)
+		if (tiles[i] != null)
 		{
-//				TGradientAnimation *GradientAni = (TGradientAnimation*)Tiles[i].property("GradientAni").value<void *>() ;
-			(Tiles[i]!!.parent as ViewGroup).removeView(Tiles[i])
-			Tiles[i] = null
+//				GradientAnimation *gradientAni = (GradientAnimation*)tiles[i].property("gradientAni").value<void *>() ;
+			(tiles[i]!!.parent as ViewGroup).removeView(tiles[i])
+			tiles[i] = null
 		}
-		Tiles = arrayOfNulls(Base * Base)
-		for (i in 0 until Tiles.size - 1)
-		if (Tiles[i] == null)
+		tiles = arrayOfNulls(base * base)
+		for (i in 0 until tiles.size - 1)
+		if (tiles[i] == null)
 		{
-			val NewTile: Button
-			NewTile = Button(this)
+			val newTile: Button
+			newTile = Button(this)
 
-//				NewTile.setOnClickListener(TileClickListener);
-			NewTile.setOnTouchListener(TileTouchListener)
+//				newTile.setOnClickListener(tileClickListener);
+			newTile.setOnTouchListener(tileTouchListener)
 
-			NewTile.text = (i + 1).toString()
+			newTile.text = (i + 1).toString()
 
 			val colorAnimation = ValueAnimator()
 			colorAnimation.addUpdateListener { animator ->
-				NewTile.backgroundTintList = ColorStateList.valueOf(animator.animatedValue as Int)
+				newTile.backgroundTintList = ColorStateList.valueOf(animator.animatedValue as Int)
 			}
 
-			NewTile.tag = colorAnimation
+			newTile.tag = colorAnimation
 
-//				NewTile.setStyleSheet(GenerateTileStyleSheet(TileFillNormalColor1, TileFillNormalColor2));
-//				GradientAni.SetCurColors(TileFillNormalColor1, TileFillNormalColor2);
-			NewTile.backgroundTintList = ColorStateList.valueOf(TileFillNormalColor1)
-			NewTile.layoutParams = ViewGroup.LayoutParams(100, 100)
-			PanelClient?.addView(NewTile)
+//				newTile.setStyleSheet(generateTileStyleSheet(tileFillNormalColor1, tileFillNormalColor2));
+//				gradientAni.setCurColors(tileFillNormalColor1, tileFillNormalColor2);
+			newTile.backgroundTintList = ColorStateList.valueOf(tileFillNormalColor1)
+			newTile.layoutParams = ViewGroup.LayoutParams(100, 100)
+			panelClient?.addView(newTile)
 
-//			NewTile.SendToBack;
-			Tiles[i] = NewTile
+//			newTile.SendToBack;
+			tiles[i] = newTile
 		}
 
-		if (Tiles[Tiles.size - 1] != null)
-			Tiles[Tiles.size - 1] = null
+		if (tiles[tiles.size - 1] != null)
+			tiles[tiles.size - 1] = null
 	}
 
-	fun ind(Row: Int, Col: Int): Int {
-		return Row * Base + Col
+	fun ind(row: Int, col: Int): Int {
+		return row * base + col
 	}
 
 
-	fun ActualPosition(ATile: Button?): Int {
-		for (i in Tiles.indices)
-			if (Tiles[i] === ATile) return i
+	fun actualPosition(tile: Button?): Int {
+		for (i in tiles.indices)
+			if (tiles[i] === tile) return i
 		return 0
 	}
 
 
-	fun OnTilePressed(sender: View)  = GlobalScope.async()
+	fun onTilePressed(sender: View)  = GlobalScope.async()
 	{
-		val SenderTile = sender as Button
-		if (Mode == TMode.JustShuffled)
-			SetMode(TMode.Game)
-		val WasMoved: Boolean =
-			TryMoveTile(ActualPosition(SenderTile), MaxMoveAniDuration,false).await()
-		if (WasMoved)
-			CheckPuzzleMatched()
+		val senderTile = sender as Button
+		if (mode == Mode.JustShuffled)
+			setMode(Mode.Game)
+		val wasMoved: Boolean =
+			tryMoveTile(actualPosition(senderTile), maxMoveAniDuration,false).await()
+		if (wasMoved)
+			checkPuzzleMatched()
 	}
 
 
-	fun TryMoveTile(TilePosition: Int, MoveAniDuration: Float, WaitAnimationEnd: Boolean): Deferred<Boolean> = GlobalScope.async()
+	fun tryMoveTile(tilePosition: Int, moveAniDuration: Float, waitAnimationEnd: Boolean):
+			Deferred<Boolean> = GlobalScope.async()
 	{
-		fun MoveTile(OldPosition: Int, NewPosition: Int) = GlobalScope.async()
+		fun moveTile(oldPosition: Int, newPosition: Int) = GlobalScope.async()
 		{
-			val temp = Tiles[NewPosition]
-			Tiles[NewPosition] = Tiles[OldPosition]
-			Tiles[OldPosition] = temp
+			val temp = tiles[newPosition]
+			tiles[newPosition] = tiles[oldPosition]
+			tiles[oldPosition] = temp
 
-			val TileNewPos = Tiles[NewPosition]
-			if (TileNewPos != null)
-				AnimateMoveTile(TileNewPos, MoveAniDuration, WaitAnimationEnd).await()
+			val tileNewPos = tiles[newPosition]
+			if (tileNewPos != null)
+				animateMoveTile(tileNewPos, moveAniDuration, waitAnimationEnd).await()
 		}
 
-		var WasMoved = false
-		val ColPressed = TilePosition % Base
-		val RowPressed = TilePosition / Base
-		for (Row in 0 until Base)
-			if (Tiles[ind(Row, ColPressed)] == null)
+		var wasMoved = false
+		val colPressed = tilePosition % base
+		val rowPressed = tilePosition / base
+		for (row in 0 until base)
+			if (tiles[ind(row, colPressed)] == null)
 			{
-				if (Row > RowPressed) //Move tiles down
-					for (RowToMove in Row - 1 downTo RowPressed)
+				if (row > rowPressed) //Move tiles down
+					for (rowToMove in row - 1 downTo rowPressed)
 					{
-						MoveTile(ind(RowToMove, ColPressed), ind(RowToMove + 1, ColPressed)).await()
-						WasMoved = true
+						moveTile(ind(rowToMove, colPressed), ind(rowToMove + 1, colPressed)).await()
+						wasMoved = true
 					}
-				if (RowPressed > Row) //Move tiles up
-					for (RowToMove in Row + 1..RowPressed)
+				if (rowPressed > row) //Move tiles up
+					for (rowToMove in row + 1..rowPressed)
 					{
-						MoveTile(ind(RowToMove, ColPressed), ind(RowToMove - 1, ColPressed)).await()
-						WasMoved = true
+						moveTile(ind(rowToMove, colPressed), ind(rowToMove - 1, colPressed)).await()
+						wasMoved = true
 					}
 			}
-		if (!WasMoved)
-			for (Col in 0 until Base)
-			if (Tiles[ind(RowPressed, Col)] == null)
+		if (!wasMoved)
+			for (col in 0 until base)
+			if (tiles[ind(rowPressed, col)] == null)
 			{
-				if (Col > ColPressed) //Move tiles right
-					for (ColToMove in Col - 1 downTo ColPressed)
+				if (col > colPressed) //Move tiles right
+					for (colToMove in col - 1 downTo colPressed)
 					{
-						MoveTile(ind(RowPressed, ColToMove), ind(RowPressed, ColToMove + 1)).await()
-						WasMoved = true
+						moveTile(ind(rowPressed, colToMove), ind(rowPressed, colToMove + 1)).await()
+						wasMoved = true
 					}
-				if (ColPressed > Col) //Move tiles left
-					for (ColToMove in Col + 1..ColPressed)
+				if (colPressed > col) //Move tiles left
+					for (colToMove in col + 1..colPressed)
 					{
-						MoveTile(ind(RowPressed, ColToMove), ind(RowPressed, ColToMove - 1)).await()
-						WasMoved = true
+						moveTile(ind(rowPressed, colToMove), ind(rowPressed, colToMove - 1)).await()
+						wasMoved = true
 					}
 			}
 
-		WasMoved
+		wasMoved
 
 
 	}
 
 
 
-	fun AnimateMoveTile(ATile: Button, MoveAniDuration: Float, WaitAnimationEnd: Boolean ) = GlobalScope.async()
+	fun animateMoveTile(tile: Button, moveAniDuration: Float, waitAnimationEnd: Boolean )
+			: Deferred<Unit>
+//			 = GlobalScope.async()
 	{
-		val ActPos = ActualPosition(ATile)
-		val NewCol = ActPos % Base
-		val NewRow = ActPos / Base
-		val OffsetOnScaledTile = (TileSize - ATile.layoutParams.width) / 2.0f
-		val X = SpaceX + Math.round(NewCol * (TileSize + TileSpacing) + OffsetOnScaledTile)
-		val Y = SpaceY + Math.round(NewRow * (TileSize + TileSpacing) + OffsetOnScaledTile)
-		if (MoveAniDuration > 0)
-		{
-//			AnimatePropertyDelay(ATile, "geometry", geometry, MoveAniDuration, 0, QEasingCurve.OutExpo, true, WaitAnimationEnd);
-			ATile.animate().translationX(X.toFloat()).translationY(Y.toFloat())
-				.setDuration(MoveAniDuration.toLong()).setStartDelay(0).setInterpolator(outExpo)
-		} else
-		{
-			ATile.translationX = X.toFloat()
-			ATile.translationY = Y.toFloat()
+		val actPos = actualPosition(tile)
+		val newCol = actPos % base
+		val newRow = actPos / base
+		val offsetOnScaledTile = (tileSize - tile.layoutParams.width) / 2.0f
+		val x = spaceX + Math.round(newCol * (tileSize + tileSpacing) + offsetOnScaledTile)
+		val y = spaceY + Math.round(newRow * (tileSize + tileSpacing) + offsetOnScaledTile)
+
+		runOnUiThread {
+			if (moveAniDuration > 0)
+			{
+				tile.animate().translationX(x.toFloat()).translationY(y.toFloat())
+					.setDuration(moveAniDuration.toLong()).setStartDelay(0).setInterpolator(outExpo)
+					.start()
+			} else
+			{
+				tile.translationX = x.toFloat()
+				tile.translationY = y.toFloat()
+			}
 		}
 
-		if (WaitAnimationEnd && (MoveAniDuration > 0))
-			Thread.sleep(MoveAniDuration.toLong() + 50L)
+		val deferred = CompletableDeferred<Unit>()
+
+		if (waitAnimationEnd && (moveAniDuration > 0))
+		{
+//			var isRunning = true;
+//			tile.animate().withEndAction { isRunning = false }
+//			while (isRunning)
+//				Thread.sleep(0);
+			tile.animate().withStartAction {
+				val curTime = System.currentTimeMillis()
+				val timeFromLastLog = curTime - lastLogTime
+				lastLogTime = curTime
+				Log.d("Shuffle", "Time=${sdf.format(Date(curTime))}; Diff=$timeFromLastLog; AniStart; moveAniDuration=$moveAniDuration;")
+			}
+			.withEndAction {
+				val curTime = System.currentTimeMillis()
+				val timeFromLastLog = curTime - lastLogTime
+				lastLogTime = curTime
+				Log.d("Shuffle", "Time=${sdf.format(Date(curTime))}; Diff=$timeFromLastLog; AniEnd  ; moveAniDuration=$moveAniDuration;")
+				deferred.complete(Unit) }
+		}
+		else
+			deferred.complete(Unit)
+
+		return deferred
 	}
 
 
-	fun CheckPuzzleMatched()
+	fun checkPuzzleMatched()
 	{
-		var LPuzzleMatched = true
-		for ((i, Tile) in Tiles.withIndex())
-			if (Tile != null)
+		var puzzleMatched = true
+		for ((i, tile) in tiles.withIndex())
+			if (tile != null)
 			{
-				val TextNumber = Tile.text.toString().toInt()
-				if (TextNumber - 1 != ActualPosition(Tiles[i]))
+				val textNumber = tile.text.toString().toInt()
+				if (textNumber - 1 != actualPosition(tiles[i]))
 				{
-					LPuzzleMatched = false
+					puzzleMatched = false
 					break
 				}
 			}
 
-		if (LPuzzleMatched && Mode == TMode.Game)
+		if (puzzleMatched && mode == Mode.Game)
 		{
-			SetMode(TMode.PuzzleMatched)
-			AnimatePuzzleMatched()
+			setMode(Mode.PuzzleMatched)
+			animatePuzzleMatched()
 		}
 
-		if (!LPuzzleMatched && (Mode == TMode.PuzzleMatched || Mode == TMode.JustShuffled))
+		if (!puzzleMatched && (mode == Mode.PuzzleMatched || mode == Mode.JustShuffled))
 		{
-			AnimateNormalizeTilesColor()
-			if (Mode == TMode.PuzzleMatched)
-				SetMode(TMode.GameOver)
+			animateNormalizeTilesColor()
+			if (mode == Mode.PuzzleMatched)
+				setMode(Mode.GameOver)
 		}
 	}
 
+	val sdf = SimpleDateFormat("HH:mm:ss.SSS")
+	var lastLogTime: Long = 0
+//	val scope = MainScope()
 
-	fun ButtonShuffleOnClick(sender: View?)
-	{
-		AnimateNormalizeTilesColor()
 
-		GlobalScope.async()
+	fun buttonShuffleOnClick(sender: View?) = GlobalScope.async() {
+
+		Log.d("Shuffle","Thread.currentThread()=${Thread.currentThread()}")
+		Log.d("Shuffle","Looper.getMainLooper().thread=${Looper.getMainLooper().thread}")
+
+		runOnUiThread {
+			animateNormalizeTilesColor()
+		}
+		var newI = 0
+		val moveCount = tiles.size * tiles.size
+		var moveAniDuration = maxMoveAniDuration
+
+		val timeShuffleStart = System.currentTimeMillis()
+		lastLogTime = timeShuffleStart
+		Log.d("Shuffle","start. moveCount=$moveCount")
+
+		for (i in 1..moveCount)
 		{
-			var NewI = 0
-			val MoveCount = Tiles.size * Tiles.size
-			var MoveAniDuration = MaxMoveAniDuration
+			if (i <= 10)
+				moveAniDuration = minMoveAniDuration + maxMoveAniDuration * (1 - i / 10.0f)
+			if (i >= moveCount - 10)
+				moveAniDuration = minMoveAniDuration + maxMoveAniDuration / 2 * (1 - (moveCount - i) / 10.0f)
+			if (i > 20 && i < moveCount - 20)
+				moveAniDuration =	if (i % 10 == 0) minMoveAniDuration else 0f
 
-			for (i in 1..MoveCount)
-			{
-				if (i <= 10)
-					MoveAniDuration = MinMoveAniDuration + MaxMoveAniDuration * (1 - i / 10.0f)
-				if (i >= MoveCount - 10)
-					MoveAniDuration = MinMoveAniDuration + MaxMoveAniDuration / 2 * (1 - (MoveCount - i) / 10.0f)
-				if (i > 20 && i < MoveCount - 20)
-					MoveAniDuration =	if (i % 10 == 0) MinMoveAniDuration else 0f
+			var wasMoved: Boolean
+			var timeWasMoved = System.currentTimeMillis()
+			do {
+				newI = randomGen.nextInt(tiles.size)
+				wasMoved = tryMoveTile(newI, moveAniDuration, true).await()
+//				suspendCoroutine<Boolean> {  }
 
-				var WasMoved: Boolean
-				do {
-					NewI = RandomGen.nextInt(Tiles.size)
-					WasMoved = TryMoveTile(NewI, MoveAniDuration, true).await()
-				} while (!WasMoved)
-			}
+				if (wasMoved)
+				{
+					val curTime = System.currentTimeMillis()
+					val MoveDuration = curTime - timeWasMoved
+					val timeFromLastLog = curTime - lastLogTime
+					Log.d("Shuffle", "Time=${sdf.format(Date(curTime))}; Diff=$timeFromLastLog; Move=$i; moveAniDuration=$moveAniDuration; MoveDuration=$MoveDuration;")
+					timeWasMoved = curTime
+					lastLogTime = curTime
+				}
+
+			} while (!wasMoved)
 		}
 
-		SetMaxTime()
-		//  StopBlinkShuffle();
-		SetMode(TMode.JustShuffled)
-		CheckPuzzleMatched()
+		val timeShuffle_ms = System.currentTimeMillis() - timeShuffleStart
+		Log.d("Shuffle","End. duration=$timeShuffle_ms; OneMove=${timeShuffle_ms/moveCount.toFloat()}")
+
+		runOnUiThread {
+			setMaxTime()
+			//  stopBlinkShuffle();
+			setMode(Mode.JustShuffled)
+			checkPuzzleMatched()
+		}
 	}
 
-	fun TimerTimeTimer()
+	fun timerTimeTimer()
 	{
-		Log.d("Timer", "TimerTimeTimer")
-		TimeRemaining = TimeRemaining - 1
-		val Sec = TimeRemaining % 60
-		val Min = TimeRemaining / 60
-		TextTime.text = String.format("%1\$d:%2$02d", Min, Sec)
-		if (TimeRemaining == 0)
+		Log.d("Timer", "timerTimeTimer")
+		timeRemaining = timeRemaining - 1
+		val sec = timeRemaining % 60
+		val min = timeRemaining / 60
+		textTime.text = String.format("%1\$d:%2$02d", min, sec)
+		if (timeRemaining == 0)
 		{
-			SetMode(TMode.GameOver)
-			AnimateTimeOver()
-			//		StartBlinkShuffle();
+			setMode(Mode.GameOver)
+			animateTimeOver()
+			//		startBlinkShuffle();
 			return
 		}
 
-		if (TimeRemaining <= 10)
-			AnimateTimeRunningOut()
+		if (timeRemaining <= 10)
+			animateTimeRunningOut()
 
-		if (Mode == TMode.Game)
+		if (mode == Mode.Game)
 		{
-			TimerTime.postDelayed(TimerTimeRunnable, 1000)
+			timerTime.postDelayed(timerTimeRunnable, 1000)
 			Log.d("Timer",
-				"TimerTime.postDelayed(TimerTimeRunnable, 1000) in TimerTimeTimer"	)
+				"timerTime.postDelayed(timerTimeRunnable, 1000) in timerTimeTimer"	)
 		}
 	}
 
-	fun SetMaxTime()
+	fun setMaxTime()
 	{
-		TimeRemaining = Base * Base * Base * Base / 20 * 10
-		val Sec = TimeRemaining % 60
-		val Min = TimeRemaining / 60
-		TextTime.text = String.format("%1\$d:%2$02d", Min, Sec)
+		timeRemaining = base * base * base * base / 20 * 10
+		val sec = timeRemaining % 60
+		val min = timeRemaining / 60
+		textTime.text = String.format("%1\$d:%2$02d", min, sec)
 	}
 
 
-	fun PanelClientResize()
+	fun panelClientResize()
 	{
-		TimerResize.removeCallbacks(TimerResizeRunnable)
-		TimerResize.postDelayed(TimerResizeRunnable, 200)
+		timerResize.removeCallbacks(timerResizeRunnable)
+		timerResize.postDelayed(timerResizeRunnable, 200)
 	}
 
 
-	fun TimerResizeTimer()
+	fun timerResizeTimer()
 	{
-		TimerResize.removeCallbacks(TimerResizeRunnable)
-		val TimeFromLastResize_ms = System.currentTimeMillis() - LastResizeTime
-		if (TimeFromLastResize_ms > 1000)
+		timerResize.removeCallbacks(timerResizeRunnable)
+		val timeFromLastResize_ms = System.currentTimeMillis() - lastResizeTime
+		if (timeFromLastResize_ms > 1000)
 		{
-			AnimatePlaceTilesFast()
-			LastResizeTime = System.currentTimeMillis()
+			animatePlaceTilesFast()
+			lastResizeTime = System.currentTimeMillis()
 		}
 	}
 
 	override fun onBackPressed()
 	{
-		if (!ClosingAnimation)
+		if (!closingAnimation)
 		{
-			ClosingAnimation = true
-			AnimateTilesDisappeare()
+			closingAnimation = true
+			animateTilesDisappeare()
 			return
 		}
 		finish()
@@ -401,154 +463,146 @@ class MainActivity : AppCompatActivity() {
 
 //-------------------------------   Animations   -----------------------------
 
-	fun CalcConsts()
+	fun calcConsts()
 	{
-		val Height = PanelClient.measuredHeight
-		val Width = PanelClient.measuredWidth
-		if (Height > Width)
+		val height = panelClient.measuredHeight
+		val width = panelClient.measuredWidth
+		if (height > width)
 		{
-			SpaceX = (Width / 20f).roundToLong()
-			TileSize = ((Width - SpaceX * 2f) / Base).roundToLong()
-			SpaceY = SpaceX + ((Height - Width).toFloat() / 2f).roundToLong()
+			spaceX = (width / 20f).roundToLong()
+			tileSize = ((width - spaceX * 2f) / base).roundToLong()
+			spaceY = spaceX + ((height - width).toFloat() / 2f).roundToLong()
 		} else
 		{
-			SpaceY = (Height / 20f).roundToLong()
-			TileSize = ((Height - SpaceY * 2f) / Base).roundToLong()
-			SpaceX = SpaceY + ((Width - Height) / 2f).roundToLong()
+			spaceY = (height / 20f).roundToLong()
+			tileSize = ((height - spaceY * 2f) / base).roundToLong()
+			spaceX = spaceY + ((width - height) / 2f).roundToLong()
 		}
-		TileSpacing = (TileSize * 0.06).roundToLong()
-		TileSize = (TileSize * 0.94).roundToLong()
-		SpaceX = SpaceX + (TileSpacing / 2f).roundToLong()
-		SpaceY = SpaceY + (TileSpacing / 2f).roundToLong()
+		tileSpacing = (tileSize * 0.06).roundToLong()
+		tileSize = (tileSize * 0.94).roundToLong()
+		spaceX = spaceX + (tileSpacing / 2f).roundToLong()
+		spaceY = spaceY + (tileSpacing / 2f).roundToLong()
 	}
 
-	fun AnimatePlaceTilesFast()
+	fun animatePlaceTilesFast()
 	{
-		CalcConsts()
+		calcConsts()
 		Log.d("Animate", "PlaceTilesFast")
 
-		for ((i, Tile) in Tiles.withIndex())
-			if (Tile != null)
+		for ((i, tile) in tiles.withIndex())
+			if (tile != null)
 			{
 				val delay = 30L * i //delay for tile
-				val Col = i % Base
-				val Row = i / Base
-				val width = Tile.layoutParams.width
-				val height = Tile.layoutParams.height
+				val col = i % base
+				val row = i / base
+				val width = tile.layoutParams.width
+				val height = tile.layoutParams.height
 				Log.d("Animate", String.format("width=%d, height=%d", width, height))
-				val ScaleX = TileSize.toFloat() / width
-				val ScaleY = TileSize.toFloat() / height
-				val OffsetOnScaledTile = (TileSize - width) / 2.0f
-				val X = SpaceX + Math.round(Col * (width * ScaleX + TileSpacing) + OffsetOnScaledTile)
-				val Y = SpaceY + Math.round(Row * (height * ScaleY + TileSpacing) + OffsetOnScaledTile)
+				val scaleX = tileSize.toFloat() / width
+				val scaleY = tileSize.toFloat() / height
+				val offsetOnScaledTile = (tileSize - width) / 2.0f
+				val x = spaceX + Math.round(col * (width * scaleX + tileSpacing) + offsetOnScaledTile)
+				val y = spaceY + Math.round(row * (height * scaleY + tileSpacing) + offsetOnScaledTile)
 
-//				Tile.animate().scaleX(ScaleX).scaleY(ScaleY)
-//						.translationX(X).translationY(Y)
+//				tile.animate().scaleX(scaleX).scaleY(scaleY)
+//						.translationX(x).translationY(y)
 //						.setDuration(100).setStartDelay(100l + delay).setInterpolator(linear);
-				Log.d("Animate", String.format("X=%d, Y=%d, ScaleX=%g, ScaleY=%g, ", X, Y, ScaleX, ScaleY))
-				AnimateFloatDelay(Tile, "scaleX", ScaleX, 200, 200 + delay)
-				AnimateFloatDelay(Tile, "scaleY", ScaleY, 200, 100 + delay)
-				AnimateFloatDelay(Tile, "translationX", X.toFloat(), 200, delay)
-				AnimateFloatDelay(Tile, "translationY", Y.toFloat(), 100, delay)
+				Log.d("Animate", String.format("x=%d, y=%d, scaleX=%g, scaleY=%g, ", x, y, scaleX, scaleY))
+				animateFloatDelay(tile, "scaleX", scaleX, 200, 200 + delay)
+				animateFloatDelay(tile, "scaleY", scaleY, 200, 100 + delay)
+				animateFloatDelay(tile, "translationX", x.toFloat(), 200, delay)
+				animateFloatDelay(tile, "translationY", y.toFloat(), 100, delay)
 			}
 	}
 
-	fun AnimateTilesDisappeare()
+	fun animateTilesDisappeare()
 	{
-		var LastTile: Button? = null
-		for ((i, Tile) in Tiles.withIndex())
-			if (Tile != null)
+		var lastTile: Button? = null
+		for ((i, tile) in tiles.withIndex())
+			if (tile != null)
 			{
 				val delay = 30L * i //delay for tile
-				val X = Math.round(Tile.translationX + TileSize / 2.0)
-				val Y = Math.round(Tile.translationY + TileSize).toLong()
-				Tile.animate().scaleX(0.1f).scaleY(0.1f)
+				val x = Math.round(tile.translationX + tileSize / 2.0)
+				val y = Math.round(tile.translationY + tileSize).toLong()
+				tile.animate().scaleX(0.1f).scaleY(0.1f)
 					.rotation(45.0f).alpha(0f)
-					.translationX(X.toFloat()).translationY(Y.toFloat())
+					.translationX(x.toFloat()).translationY(y.toFloat())
 					.setDuration(400).setStartDelay(delay).setInterpolator(inBack)
 
-//		   	AnimateFloatDelay(Tile, "scaleX", 0.1f, 400, delay);
-//		   	AnimateFloatDelay(Tile, "scaleY", 0.1f, 400, delay);
-//		   	AnimateFloatDelay(Tile, "rotation", 45, 400, delay);
-//		   	AnimateFloatDelay(Tile, "translationY", Y, 400, delay, inBack);
-//		   	AnimateFloatDelay(Tile, "translationX", X, 400, delay);
-//		   	AnimateFloatDelay(Tile, "alpha", 0, 400, 100 + delay);
-				LastTile = Tile
+//		   	animateFloatDelay(tile, "scaleX", 0.1f, 400, delay);
+//		   	animateFloatDelay(tile, "scaleY", 0.1f, 400, delay);
+//		   	animateFloatDelay(tile, "rotation", 45, 400, delay);
+//		   	animateFloatDelay(tile, "translationY", y, 400, delay, inBack);
+//		   	animateFloatDelay(tile, "translationX", x, 400, delay);
+//		   	animateFloatDelay(tile, "alpha", 0, 400, 100 + delay);
+				lastTile = tile
 			}
 
-//		Log.d("ClosingAnimation", " = " + ((Boolean)ClosingAnimation).toString() +
-//				" LastTile =" + ((LastTile == null)? "null": LastTile.toString())
+//		Log.d("closingAnimation", " = " + ((Boolean)closingAnimation).toString() +
+//				" lastTile =" + ((lastTile == null)? "null": lastTile.toString())
 //		);
-		if (ClosingAnimation && LastTile != null)
-		{
-			LastTile.animate().setListener(object : AnimatorListener {
-				override fun onAnimationEnd(animation: Animator) {
-					finish()
-				}
-
-				override fun onAnimationStart(animation: Animator) {}
-				override fun onAnimationCancel(animation: Animator) {}
-				override fun onAnimationRepeat(animation: Animator) {}
-			})
-		}
+		if (closingAnimation && lastTile != null)
+			lastTile.animate().withEndAction {
+				finish()
+			}
 	}
 
-	fun AnimatePrepareBeforePlace()
+	fun animatePrepareBeforePlace()
 	{
-		for ((i, Tile) in Tiles.withIndex())
-			if (Tile != null)
+		for ((i, tile) in tiles.withIndex())
+			if (tile != null)
 			{
-				val ScaleX = TileSize.toFloat() / Tile.layoutParams.width
-				val ScaleY = TileSize.toFloat() / Tile.layoutParams.height
-				val Col = i % Base
-				val Row = i / Base
-				val X = SpaceX + Math.round(Col * (Tile.layoutParams.width * ScaleX + TileSpacing))
-				val Y = SpaceY + Math.round(Row * (Tile.layoutParams.height * ScaleY + TileSpacing))
-				Tile.scaleX = 0.5f
-				Tile.scaleY = 0.5f
-				Tile.alpha = 0f
-				Tile.rotation = 45.0f
-				Tile.translationX = X + Math.round(TileSize / 2.0).toFloat()
-				Tile.translationY = Y + TileSize.toFloat()
+				val scaleX = tileSize.toFloat() / tile.layoutParams.width
+				val scaleY = tileSize.toFloat() / tile.layoutParams.height
+				val col = i % base
+				val row = i / base
+				val x = spaceX + Math.round(col * (tile.layoutParams.width * scaleX + tileSpacing))
+				val y = spaceY + Math.round(row * (tile.layoutParams.height * scaleY + tileSpacing))
+				tile.scaleX = 0.5f
+				tile.scaleY = 0.5f
+				tile.alpha = 0f
+				tile.rotation = 45.0f
+				tile.translationX = x + Math.round(tileSize / 2.0).toFloat()
+				tile.translationY = y + tileSize.toFloat()
 			}
 
-		for ((i, Tile) in Tiles.withIndex())
-			if (Tile != null)
+		for ((i, tile) in tiles.withIndex())
+			if (tile != null)
 			{
 				val delay = 30L * i //delay for tile
 
-//				Tile.animate().rotation(0).alpha(1)
+//				tile.animate().rotation(0).alpha(1)
 //						.setDuration(200).setStartDelay(delay).setInterpolator(linear);
-				AnimateFloatDelay(Tile, "rotation", 0f, 400, delay)
-				AnimateFloatDelay(Tile, "alpha", 1f, 400, 100 + delay)
+				animateFloatDelay(tile, "rotation", 0f, 400, delay)
+				animateFloatDelay(tile, "alpha", 1f, 400, 100 + delay)
 			}
 	}
 
-	fun AnimateBaseNotChanged() {
-		for ((i, Tile) in Tiles.withIndex())
-			if (Tile != null)
+	fun animateBaseNotChanged() {
+		for ((i, tile) in tiles.withIndex())
+			if (tile != null)
 			{
 				val delay = 30L * i //delay for tile
-				val OrigScaleX = Tile.scaleX
-				val OrigScaleY = Tile.scaleY
-				AnimateFloatDelay(Tile, "scaleX", OrigScaleX / 2.0f, 300, delay, inBack)
-				AnimateFloatDelay(Tile, "scaleY", OrigScaleY / 2.0f, 300, delay, inBack)
-				AnimateFloatDelay(Tile, "scaleX", OrigScaleX, 300, 350 + delay, outBack)
-				AnimateFloatDelay(Tile, "scaleY", OrigScaleY, 300, 350 + delay, outBack)
+				val origScaleX = tile.scaleX
+				val origScaleY = tile.scaleY
+				animateFloatDelay(tile, "scaleX", origScaleX / 2.0f, 300, delay, inBack)
+				animateFloatDelay(tile, "scaleY", origScaleY / 2.0f, 300, delay, inBack)
+				animateFloatDelay(tile, "scaleX", origScaleX, 300, 350 + delay, outBack)
+				animateFloatDelay(tile, "scaleY", origScaleY, 300, 350 + delay, outBack)
 			}
 	}
 
 
-	fun AnimatePuzzleMatched() {
-		for ((i, Tile) in Tiles.withIndex())
-			if (Tile != null)
+	fun animatePuzzleMatched() {
+		for ((i, tile) in tiles.withIndex())
+			if (tile != null)
 			{
 				val delay = 30L * i //delay for tile
-				AnimateFloatDelay(Tile, "rotation", 360f, 1000, 350, outBack)
+				animateFloatDelay(tile, "rotation", 360f, 1000, 350, outBack)
 
-//				Tile.setBackgroundTintList(ColorStateList.valueOf(/*lawngreen*/0xFF7CFC00));
-				val colorAnimation = Tile.tag as ValueAnimator
-				val colorFrom = Tile.backgroundTintList!!.defaultColor
+//				tile.setBackgroundTintList(colorStateList.valueOf(/*lawngreen*/0xFF7CFC00));
+				val colorAnimation = tile.tag as ValueAnimator
+				val colorFrom = tile.backgroundTintList!!.defaultColor
 				val colorTo =  /*lawngreen*/0xFF7CFC00.toInt()
 				colorAnimation.setObjectValues(colorFrom, colorTo)
 				colorAnimation.setEvaluator(ArgbEvaluator())
@@ -559,13 +613,13 @@ class MainActivity : AppCompatActivity() {
 			}
 	}
 
-	fun AnimateTimeRunningOut() {
-		for ((i, Tile) in Tiles.withIndex())
-			if (Tile != null)
+	fun animateTimeRunningOut() {
+		for ((i, tile) in tiles.withIndex())
+			if (tile != null)
 			{
-//				Tile.setBackgroundTintList(ColorStateList.valueOf(/*darkorange*/0xFFFF8C00));
-				val colorAnimation = Tile.tag as ValueAnimator
-				val colorFrom = Tile.backgroundTintList!!.defaultColor
+//				tile.setBackgroundTintList(colorStateList.valueOf(/*darkorange*/0xFFFF8C00));
+				val colorAnimation = tile.tag as ValueAnimator
+				val colorFrom = tile.backgroundTintList!!.defaultColor
 				val colorTo =  /*darkorange*/0xFFFF8C00.toInt()
 				colorAnimation.setObjectValues(colorFrom, colorTo)
 				colorAnimation.setEvaluator(ArgbEvaluator())
@@ -577,14 +631,14 @@ class MainActivity : AppCompatActivity() {
 			}
 	}
 
-	fun AnimateTimeOver() {
-		for ((i, Tile) in Tiles.withIndex())
-			if (Tile != null)
+	fun animateTimeOver() {
+		for ((i, tile) in tiles.withIndex())
+			if (tile != null)
 			{
 				val delay = 30L * i //delay for tile
-				//				Tile.setBackgroundTintList(ColorStateList.valueOf(/*red*/0xFFFF0000));
-				val colorAnimation = Tile.tag as ValueAnimator
-				val colorFrom = Tile.backgroundTintList!!.defaultColor
+				//				tile.setBackgroundTintList(colorStateList.valueOf(/*red*/0xFFFF0000));
+				val colorAnimation = tile.tag as ValueAnimator
+				val colorFrom = tile.backgroundTintList!!.defaultColor
 				val colorTo =  /*red*/0xFFFF0000.toInt()
 				colorAnimation.setObjectValues(colorFrom, colorTo)
 				colorAnimation.setEvaluator(ArgbEvaluator())
@@ -595,15 +649,15 @@ class MainActivity : AppCompatActivity() {
 			}
 	}
 
-	fun AnimateNormalizeTilesColor() {
-		for ((i, Tile) in Tiles.withIndex())
-			if (Tile != null)
+	fun animateNormalizeTilesColor() {
+		for ((i, tile) in tiles.withIndex())
+			if (tile != null)
 			{
 				val delay = 30L * i //delay for tile
-				//				Tile.setBackgroundTintList(ColorStateList.valueOf(TileFillNormalColor1));
-				val colorAnimation = Tile.tag as ValueAnimator
-				val colorFrom = Tile.backgroundTintList!!.defaultColor
-				val colorTo = TileFillNormalColor1
+				//				tile.setBackgroundTintList(colorStateList.valueOf(tileFillNormalColor1));
+				val colorAnimation = tile.tag as ValueAnimator
+				val colorFrom = tile.backgroundTintList!!.defaultColor
+				val colorTo = tileFillNormalColor1
 				colorAnimation.setObjectValues(colorFrom, colorTo)
 				colorAnimation.setEvaluator(ArgbEvaluator())
 				colorAnimation.duration = 1000
@@ -615,44 +669,44 @@ class MainActivity : AppCompatActivity() {
 
 
 //-------------------------------  Test different Animations   -----------------------------
-	fun ButtonDisappeareOnClick(sender: View?) {
-		AnimateTilesDisappeare()
+	fun buttonDisappeareOnClick(sender: View?) {
+		animateTilesDisappeare()
 	}
 
-	fun ButtonPlaceOnClick(sender: View?) {
-		AnimateNormalizeTilesColor()
-		AnimatePrepareBeforePlace()
-		AnimatePlaceTilesFast()
+	fun buttonPlaceOnClick(sender: View?) {
+		animateNormalizeTilesColor()
+		animatePrepareBeforePlace()
+		animatePlaceTilesFast()
 	}
 
-	fun ButtonTimeOverOnClick(sender: View?) {
-		AnimateTimeOver()
+	fun buttonTimeOverOnClick(sender: View?) {
+		animateTimeOver()
 	}
 
-	fun ButtonTimeRunningOutOnClick(sender: View?) {
-		AnimateTimeRunningOut()
+	fun buttonTimeRunningOutOnClick(sender: View?) {
+		animateTimeRunningOut()
 	}
 
-	fun ButtonPuzzleMatchedOnClick(sender: View?) {
-		AnimatePuzzleMatched()
+	fun buttonPuzzleMatchedOnClick(sender: View?) {
+		animatePuzzleMatched()
 	}
 
 
 //---------------------------  Realization of Property Animation   -----------------------------
 
 
-	fun AnimateFloatDelay(
-		Target: View, PropertyName: String,
-		Value: Float, Duration_ms: Long, Delay_ms: Long,
-		AInterpolator: TimeInterpolator = linear
-		/*, boolean DeleteWhenStopped, boolean WaitAnimationEnd*/	): ObjectAnimator
+	fun animateFloatDelay(
+		target: View, propertyName: String,
+		value: Float, duration_ms: Long, delay_ms: Long,
+		interpolator: TimeInterpolator = linear
+		/*, boolean deleteWhenStopped, boolean waitAnimationEnd*/	): ObjectAnimator
 	{
-		val objectAnimator = ObjectAnimator.ofFloat(Target, PropertyName, Value)
-		objectAnimator.duration = Duration_ms
-		objectAnimator.startDelay = Delay_ms
+		val objectAnimator = ObjectAnimator.ofFloat(target, propertyName, value)
+		objectAnimator.duration = duration_ms
+		objectAnimator.startDelay = delay_ms
 		//		objectAnimator.setRepeatCount(1);
 //		objectAnimator.setRepeatMode(ObjectAnimator.REVERSE);
-		objectAnimator.interpolator = AInterpolator
+		objectAnimator.interpolator = interpolator
 		objectAnimator.start()
 		return objectAnimator
 	}

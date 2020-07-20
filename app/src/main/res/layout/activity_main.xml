@@ -17,7 +17,7 @@
             android:orientation="horizontal">
 
             <TextView
-                android:id="@+id/TextTime"
+                android:id="@+id/textTime"
                 android:layout_width="93dp"
                 android:layout_height="39dp"
                 android:layout_weight="1"
@@ -27,11 +27,11 @@
                 android:textSize="18sp" />
 
             <Button
-                android:id="@+id/ButtonShuffle"
+                android:id="@+id/buttonShuffle"
                 android:layout_width="156dp"
                 android:layout_height="wrap_content"
                 android:layout_weight="1"
-                android:onClick="ButtonShuffleOnClick"
+                android:onClick="buttonShuffleOnClick"
                 android:text="Shuffle"
                 android:textAllCaps="false" />
 
@@ -46,7 +46,7 @@
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:layout_weight="1"
-                    android:onClick="ButtonBaseOnClick"
+                    android:onClick="buttonBaseOnClick"
                     android:text="3x3"
                     android:textAllCaps="false" />
 
@@ -55,7 +55,7 @@
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:layout_weight="1"
-                    android:onClick="ButtonBaseOnClick"
+                    android:onClick="buttonBaseOnClick"
                     android:text="4x4"
                     android:textAllCaps="false" />
 
@@ -64,7 +64,7 @@
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:layout_weight="1"
-                    android:onClick="ButtonBaseOnClick"
+                    android:onClick="buttonBaseOnClick"
                     android:text="5x5"
                     android:textAllCaps="false" />
             </LinearLayout>
@@ -77,20 +77,20 @@
             android:orientation="horizontal">
 
             <Button
-                android:id="@+id/ButtonDisappeare"
+                android:id="@+id/buttonDisappeare"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:layout_weight="1"
-                android:onClick="ButtonDisappeareOnClick"
+                android:onClick="buttonDisappeareOnClick"
                 android:text="Disappeare"
                 android:textAllCaps="false" />
 
             <Button
-                android:id="@+id/ButtonPlace"
+                android:id="@+id/buttonPlace"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:layout_weight="1"
-                android:onClick="ButtonPlaceOnClick"
+                android:onClick="buttonPlaceOnClick"
                 android:text="Place"
                 android:textAllCaps="false" />
 
@@ -102,35 +102,36 @@
             android:orientation="horizontal">
 
             <Button
-                android:id="@+id/ButtonTimeRunningOut"
+                android:id="@+id/buttonTimeRunningOut"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:layout_weight="1"
-                android:onClick="ButtonTimeRunningOutOnClick"
+                android:backgroundTint="#23FFC107"
+                android:onClick="buttonTimeRunningOutOnClick"
                 android:text="Time Running Out"
                 android:textAllCaps="false" />
 
             <Button
-                android:id="@+id/ButtonTimeOver"
+                android:id="@+id/buttonTimeOver"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:layout_weight="1"
-                android:onClick="ButtonTimeOverOnClick"
+                android:onClick="buttonTimeOverOnClick"
                 android:text="Time Over"
                 android:textAllCaps="false" />
 
             <Button
-                android:id="@+id/ButtonPuzzleMatched"
+                android:id="@+id/buttonPuzzleMatched"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:layout_weight="1"
-                android:onClick="ButtonPuzzleMatchedOnClick"
+                android:onClick="buttonPuzzleMatchedOnClick"
                 android:text="Puzzle Matched"
                 android:textAllCaps="false" />
         </LinearLayout>
 
         <RelativeLayout
-            android:id="@+id/PanelClient"
+            android:id="@+id/panelClient"
             android:layout_width="match_parent"
             android:layout_height="467dp"
             android:layout_weight="1">
