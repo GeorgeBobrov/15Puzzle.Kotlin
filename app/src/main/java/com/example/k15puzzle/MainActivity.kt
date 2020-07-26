@@ -48,12 +48,7 @@ class MainActivity : AppCompatActivity() {
 	var panelDebugMaximumHeight = 0
 	var resizeCount = 0
 
-	var timerTime = Handler()
-	var timerResize = Handler()
-	var timerCreateTiles = Handler()
-	var timerTimeRunnable = Runnable { timerTimeTimer() }
-	var timerResizeRunnable = Runnable { timerResizeTimer() }
-	var timerCreateTilesRunnable = Runnable { timerCreateTilesTimer() }
+	var handler = Handler()
 
 	private val randomGen = Random()
 
@@ -97,9 +92,9 @@ class MainActivity : AppCompatActivity() {
 	{
 		mode = value
 		if (mode == Mode.Game)
-			timerTime.postDelayed(timerTimeRunnable, 1000)
+			handler.postDelayed(timerTimeRunnable, 1000)
 		else
-			timerTime.removeCallbacks(timerTimeRunnable)
+			handler.removeCallbacks(timerTimeRunnable)
 	}
 
 
@@ -120,14 +115,15 @@ class MainActivity : AppCompatActivity() {
 		setMode(Mode.GameOver)
 		animateTilesDisappeare()
 		base = value
-		setMaxTime()
 		val delay = if (tiles.size > 0) (520 + 30L * tiles.size) else (200L)
-		timerCreateTiles.postDelayed(timerCreateTilesRunnable, delay)
+		handler.postDelayed(timerCreateTilesRunnable, delay)
 	}
 
+	var timerCreateTilesRunnable = Runnable { timerCreateTilesTimer() }
 	fun timerCreateTilesTimer()
 	{
 		createTiles()
+		setMaxTime()
 		animatePrepareBeforePlace()
 		animatePlaceTilesFast()
 	}
@@ -397,6 +393,7 @@ class MainActivity : AppCompatActivity() {
 		}
 	}
 
+	var timerTimeRunnable = Runnable { timerTimeTimer() }
 	fun timerTimeTimer()
 	{
 		Log.d("Timer", "timerTimeTimer")
@@ -417,7 +414,7 @@ class MainActivity : AppCompatActivity() {
 
 		if (mode == Mode.Game)
 		{
-			timerTime.postDelayed(timerTimeRunnable, 1000)
+			handler.postDelayed(timerTimeRunnable, 1000)
 			Log.d("Timer",
 				"timerTime.postDelayed(timerTimeRunnable, 1000) in timerTimeTimer"	)
 		}
@@ -434,14 +431,15 @@ class MainActivity : AppCompatActivity() {
 
 	fun panelClientResize()
 	{
-		timerResize.removeCallbacks(timerResizeRunnable)
-		timerResize.postDelayed(timerResizeRunnable, 200)
+		handler.removeCallbacks(timerResizeRunnable)
+		handler.postDelayed(timerResizeRunnable, 200)
 	}
 
 
+	var timerResizeRunnable = Runnable { timerResizeTimer() }
 	fun timerResizeTimer()
 	{
-		timerResize.removeCallbacks(timerResizeRunnable)
+		handler.removeCallbacks(timerResizeRunnable)
 		val timeFromLastResize_ms = System.currentTimeMillis() - lastResizeTime
 		if (timeFromLastResize_ms > 1000)
 		{
