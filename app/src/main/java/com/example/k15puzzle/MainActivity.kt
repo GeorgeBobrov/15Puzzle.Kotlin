@@ -29,9 +29,6 @@ class MainActivity : AppCompatActivity() {
 		Game, GameOver, JustShuffled, PuzzleMatched
 	}
 
-	private var base = 0
-	private var mode: Mode? = null
-
 	var tiles = arrayOfNulls<Button?>(0)
 	var tileSize: Long = 0
 	var tileSpacing: Long = 0
@@ -84,13 +81,14 @@ class MainActivity : AppCompatActivity() {
 //		LinearGradient linearGradient = new LinearGradient();
 		Log.d("onCreate","Thread.currentThread()=${Thread.currentThread()}")
 
-		setBase(4)
+		base = 4
 	}
 
-
-	fun setMode(value: Mode)
+	private var mode: Mode? = null
+	set(value)
+//	fun setMode(value: Mode)
 	{
-		mode = value
+		field = value
 		if (mode == Mode.Game)
 			handler.postDelayed(timerTimeRunnable, 1000)
 		else
@@ -102,19 +100,21 @@ class MainActivity : AppCompatActivity() {
 	{
 		val senderButton = sender as Button
 		val lBase = senderButton.text[0].toString().toInt()
-		setBase(lBase)
+		base = lBase
 	}
 
-	fun setBase(value: Int)
+	private var base = 0
+	set(value)
+//	fun setBase(value: Int)
 	{
 		if (value == base)
 		{
 			animateBaseNotChanged()
 			return
 		}
-		setMode(Mode.GameOver)
+		mode = Mode.GameOver
 		animateTilesDisappeare()
-		base = value
+		field = value
 		val delay = if (tiles.size > 0) (520 + 30L * tiles.size) else (200L)
 		handler.postDelayed(timerCreateTilesRunnable, delay)
 	}
@@ -141,8 +141,7 @@ class MainActivity : AppCompatActivity() {
 		for (i in 0 until tiles.size - 1)
 		if (tiles[i] == null)
 		{
-			val newTile: Button
-			newTile = Button(this)
+			val newTile = Button(this)
 
 //				newTile.setOnClickListener(tileClickListener);
 			newTile.setOnTouchListener(tileTouchListener)
@@ -186,7 +185,7 @@ class MainActivity : AppCompatActivity() {
 	{
 		val senderTile = sender as Button
 		if (mode == Mode.JustShuffled)
-			setMode(Mode.Game)
+			mode = Mode.Game
 		val wasMoved: Boolean =
 			tryMoveTile(actualPosition(senderTile), maxMoveAniDuration,false).await()
 		if (wasMoved)
@@ -320,7 +319,7 @@ class MainActivity : AppCompatActivity() {
 
 		if (puzzleMatched && mode == Mode.Game)
 		{
-			setMode(Mode.PuzzleMatched)
+			mode = Mode.PuzzleMatched
 			animatePuzzleMatched()
 		}
 
@@ -328,7 +327,7 @@ class MainActivity : AppCompatActivity() {
 		{
 			animateNormalizeTilesColor()
 			if (mode == Mode.PuzzleMatched)
-				setMode(Mode.GameOver)
+				mode = Mode.GameOver
 		}
 	}
 
@@ -388,7 +387,7 @@ class MainActivity : AppCompatActivity() {
 		runOnUiThread {
 			setMaxTime()
 			//  stopBlinkShuffle();
-			setMode(Mode.JustShuffled)
+			mode = Mode.JustShuffled
 			checkPuzzleMatched()
 		}
 	}
@@ -403,7 +402,7 @@ class MainActivity : AppCompatActivity() {
 		textTime.text = String.format("%1\$d:%2$02d", min, sec)
 		if (timeRemaining == 0)
 		{
-			setMode(Mode.GameOver)
+			mode = Mode.GameOver
 			animateTimeOver()
 			//		startBlinkShuffle();
 			return
