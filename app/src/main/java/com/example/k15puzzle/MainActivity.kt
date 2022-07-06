@@ -187,7 +187,7 @@ class MainActivity : AppCompatActivity() {
 		if (mode == Mode.JustShuffled)
 			mode = Mode.Game
 		val wasMoved: Boolean =
-			tryMoveTile(actualPosition(senderTile), maxMoveAniDuration,false).await()
+			tryMoveTile(actualPosition(senderTile), maxMoveAniDuration, waitAnimationEnd = false).await()
 		if (wasMoved)
 			checkPuzzleMatched()
 	}
