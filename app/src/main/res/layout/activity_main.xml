@@ -29,8 +29,9 @@
             <Button
                 android:id="@+id/buttonShuffle"
                 android:layout_width="156dp"
-                android:layout_height="wrap_content"
+                android:layout_height="match_parent"
                 android:layout_weight="1"
+                android:drawableLeft="@drawable/ic_shuffle_black_30dp"
                 android:onClick="buttonShuffleOnClick"
                 android:text="Shuffle"
                 android:textAllCaps="false" />
@@ -44,7 +45,7 @@
                 <Button
                     android:id="@+id/button3"
                     android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
+                    android:layout_height="match_parent"
                     android:layout_weight="1"
                     android:onClick="buttonBaseOnClick"
                     android:text="3x3"
@@ -53,7 +54,7 @@
                 <Button
                     android:id="@+id/button4"
                     android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
+                    android:layout_height="match_parent"
                     android:layout_weight="1"
                     android:onClick="buttonBaseOnClick"
                     android:text="4x4"
@@ -62,7 +63,7 @@
                 <Button
                     android:id="@+id/button5"
                     android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
+                    android:layout_height="match_parent"
                     android:layout_weight="1"
                     android:onClick="buttonBaseOnClick"
                     android:text="5x5"
@@ -72,62 +73,69 @@
         </LinearLayout>
 
         <LinearLayout
+            android:id="@+id/panelTestAnimations"
             android:layout_width="match_parent"
-            android:layout_height="42dp"
-            android:orientation="horizontal">
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:visibility="gone">
 
-            <Button
-                android:id="@+id/buttonDisappeare"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:layout_weight="1"
-                android:onClick="buttonDisappeareOnClick"
-                android:text="Disappeare"
-                android:textAllCaps="false" />
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="45dp"
+                android:orientation="horizontal">
 
-            <Button
-                android:id="@+id/buttonPlace"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:layout_weight="1"
-                android:onClick="buttonPlaceOnClick"
-                android:text="Place"
-                android:textAllCaps="false" />
+                <Button
+                    android:id="@+id/buttonTimeRunningOut"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:onClick="buttonTimeRunningOutOnClick"
+                    android:text="Time Running Out"
+                    android:textAllCaps="false" />
 
-        </LinearLayout>
+                <Button
+                    android:id="@+id/buttonTimeOver"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:onClick="buttonTimeOverOnClick"
+                    android:text="Time Over"
+                    android:textAllCaps="false" />
 
-        <LinearLayout
-            android:layout_width="match_parent"
-            android:layout_height="45dp"
-            android:orientation="horizontal">
+                <Button
+                    android:id="@+id/buttonPuzzleMatched"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:onClick="buttonPuzzleMatchedOnClick"
+                    android:text="Puzzle Matched"
+                    android:textAllCaps="false" />
+            </LinearLayout>
 
-            <Button
-                android:id="@+id/buttonTimeRunningOut"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:layout_weight="1"
-                android:backgroundTint="#23FFC107"
-                android:onClick="buttonTimeRunningOutOnClick"
-                android:text="Time Running Out"
-                android:textAllCaps="false" />
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="42dp"
+                android:orientation="horizontal">
 
-            <Button
-                android:id="@+id/buttonTimeOver"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:layout_weight="1"
-                android:onClick="buttonTimeOverOnClick"
-                android:text="Time Over"
-                android:textAllCaps="false" />
+                <Button
+                    android:id="@+id/buttonDisappeare"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:onClick="buttonDisappeareOnClick"
+                    android:text="Disappeare"
+                    android:textAllCaps="false" />
 
-            <Button
-                android:id="@+id/buttonPuzzleMatched"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:layout_weight="1"
-                android:onClick="buttonPuzzleMatchedOnClick"
-                android:text="Puzzle Matched"
-                android:textAllCaps="false" />
+                <Button
+                    android:id="@+id/buttonPlace"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:onClick="buttonPlaceOnClick"
+                    android:text="Place"
+                    android:textAllCaps="false" />
+
+            </LinearLayout>
         </LinearLayout>
 
         <RelativeLayout

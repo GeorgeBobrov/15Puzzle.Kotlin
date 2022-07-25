@@ -68,6 +68,7 @@ class MainActivity : AppCompatActivity() {
 	var inBack: TimeInterpolator = PathInterpolator(0.6f, -0.28f, 0.735f, 0.045f)
 	var outBack: TimeInterpolator = PathInterpolator(0.175f, 0.885f, 0.32f, 1.275f)
 	var outExpo: TimeInterpolator = PathInterpolator(0.19f, 1f, 0.22f, 1f)
+	var panelDebugVisible = false
 
 	override fun onCreate(savedInstanceState: Bundle?)
 	{
@@ -79,9 +80,11 @@ class MainActivity : AppCompatActivity() {
 		panelClient.viewTreeObserver.addOnGlobalLayoutListener { panelClientResize() }
 
 //		LinearGradient linearGradient = new LinearGradient();
-		Log.d("onCreate","Thread.currentThread()=${Thread.currentThread()}")
+		Log.d("onCreate", "Thread.currentThread()=${Thread.currentThread()}")
 
 		base = 4
+
+		panelClient.setOnLongClickListener()  { panelClientOnLongClick(it) }
 	}
 
 	private var mode: Mode? = null
@@ -251,7 +254,7 @@ class MainActivity : AppCompatActivity() {
 
 
 
-	fun animateMoveTile(tile: Button, moveAniDuration: Float, waitAnimationEnd: Boolean )
+	fun animateMoveTile(tile: Button, moveAniDuration: Float, waitAnimationEnd: Boolean)
 			: Deferred<Unit>
 //			 = GlobalScope.async()
 	{
@@ -338,8 +341,8 @@ class MainActivity : AppCompatActivity() {
 
 	fun buttonShuffleOnClick(sender: View?) = GlobalScope.async() {
 
-		Log.d("Shuffle","Thread.currentThread()=${Thread.currentThread()}")
-		Log.d("Shuffle","Looper.getMainLooper().thread=${Looper.getMainLooper().thread}")
+		Log.d("Shuffle", "Thread.currentThread()=${Thread.currentThread()}")
+		Log.d("Shuffle", "Looper.getMainLooper().thread=${Looper.getMainLooper().thread}")
 
 		runOnUiThread {
 			animateNormalizeTilesColor()
@@ -350,7 +353,7 @@ class MainActivity : AppCompatActivity() {
 
 		val timeShuffleStart = System.currentTimeMillis()
 		lastLogTime = timeShuffleStart
-		Log.d("Shuffle","start. moveCount=$moveCount")
+		Log.d("Shuffle", "start. moveCount=$moveCount")
 
 		for (i in 1..moveCount)
 		{
@@ -414,8 +417,7 @@ class MainActivity : AppCompatActivity() {
 		if (mode == Mode.Game)
 		{
 			handler.postDelayed(timerTimeRunnable, 1000)
-			Log.d("Timer",
-				"timerTime.postDelayed(timerTimeRunnable, 1000) in timerTimeTimer"	)
+			Log.d("Timer", "timerTime.postDelayed(timerTimeRunnable, 1000) in timerTimeTimer")
 		}
 	}
 
@@ -688,6 +690,16 @@ class MainActivity : AppCompatActivity() {
 		animatePuzzleMatched()
 	}
 
+	fun panelClientOnLongClick(sender: View): Boolean
+	{
+		panelDebugVisible = ! panelDebugVisible
+		if (panelDebugVisible)
+			panelTestAnimations.visibility = View.VISIBLE
+		else
+			panelTestAnimations.visibility = View.GONE
+
+		return true
+	}
 
 //---------------------------  Realization of Property Animation   -----------------------------
 
@@ -696,7 +708,7 @@ class MainActivity : AppCompatActivity() {
 		target: View, propertyName: String,
 		value: Float, duration_ms: Long, delay_ms: Long,
 		interpolator: TimeInterpolator = linear
-		/*, boolean deleteWhenStopped, boolean waitAnimationEnd*/	): ObjectAnimator
+		/*, boolean deleteWhenStopped, boolean waitAnimationEnd*/): ObjectAnimator
 	{
 		val objectAnimator = ObjectAnimator.ofFloat(target, propertyName, value)
 		objectAnimator.duration = duration_ms
