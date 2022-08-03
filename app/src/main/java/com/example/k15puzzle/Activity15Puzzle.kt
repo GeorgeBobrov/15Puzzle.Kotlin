@@ -4,11 +4,9 @@ import android.animation.ArgbEvaluator
 import android.animation.ObjectAnimator
 import android.animation.TimeInterpolator
 import android.animation.ValueAnimator
-import android.content.res.ColorStateList
+import android.graphics.drawable.GradientDrawable
 import android.os.Bundle
 import android.os.Handler
-import android.os.Looper
-import android.util.Log
 import android.view.MotionEvent
 import android.view.View
 import android.view.View.OnTouchListener
@@ -19,7 +17,6 @@ import android.widget.Button
 import androidx.appcompat.app.AppCompatActivity
 import kotlinx.android.synthetic.main.activity_15puzzle.*
 import kotlinx.coroutines.*
-import java.text.SimpleDateFormat
 import java.util.*
 import kotlin.math.roundToLong
 
@@ -79,10 +76,6 @@ class Activity15Puzzle : AppCompatActivity() {
 
 		panelClient.viewTreeObserver.addOnGlobalLayoutListener { panelClientResize() }
 
-// Gradients are not realized on this Android version, so all actions with gradients,
-// that remained after porting the code, are commented out
-//		LinearGradient linearGradient = new LinearGradient();
-
 // Logging has been added to debug animation delays, now commented out
 //		Log.d("onCreate", "Thread.currentThread()=${Thread.currentThread()}")
 
@@ -136,7 +129,6 @@ class Activity15Puzzle : AppCompatActivity() {
 	fun createTiles() {
 		for (i in tiles.indices)
 		if (tiles[i] != null) {
-//				GradientAnimation *gradientAni = (GradientAnimation*)tiles[i].property("gradientAni").value<void *>() ;
 			(tiles[i]!!.parent as ViewGroup).removeView(tiles[i])
 			tiles[i] = null
 		}
@@ -145,26 +137,33 @@ class Activity15Puzzle : AppCompatActivity() {
 		if (tiles[i] == null) {
 			val newTile = Button(this)
 
-//				newTile.setOnClickListener(tileClickListener);
 			newTile.setOnTouchListener(tileTouchListener)
 
 			newTile.text = (i + 1).toString()
 
-// Animating background of tile, but simple color, without gradient
+// Animating background of tile, one color of gradient
 			val colorAnimation = ValueAnimator()
 			colorAnimation.addUpdateListener { animator ->
-				newTile.backgroundTintList = ColorStateList.valueOf(animator.animatedValue as Int)
+				val color = animator.animatedValue as Int
+				val gradientDrawable = newTile.background as GradientDrawable
+				gradientDrawable.colors = intArrayOf(tileFillNormalColor1, color)
+
+				newTile.setTag(R.id.tileCurColor, color)
 			}
 
-			newTile.tag = colorAnimation
+			newTile.setTag(R.id.tileColorAnimation, colorAnimation)
+			newTile.setTag(R.id.tileCurColor, tileFillNormalColor2)
 
-//				newTile.setStyleSheet(generateTileStyleSheet(tileFillNormalColor1, tileFillNormalColor2));
-//				gradientAni.setCurColors(tileFillNormalColor1, tileFillNormalColor2);
-			newTile.backgroundTintList = ColorStateList.valueOf(tileFillNormalColor1)
+			val gradientDrawable = GradientDrawable(
+				GradientDrawable.Orientation.TL_BR, intArrayOf(tileFillNormalColor1, tileFillNormalColor2))
+			gradientDrawable.cornerRadius = 4f
+			gradientDrawable.setStroke(8, 0xFFE55555.toInt())
+
+			newTile.setBackground(gradientDrawable)
+
 			newTile.layoutParams = ViewGroup.LayoutParams(100, 100)
 			panelClient?.addView(newTile)
 
-//			newTile.SendToBack;
 			tiles[i] = newTile
 		}
 
@@ -466,11 +465,6 @@ class Activity15Puzzle : AppCompatActivity() {
 				val x = spaceX + Math.round(col * (width * scaleX + tileSpacing) + offsetOnScaledTile)
 				val y = spaceY + Math.round(row * (height * scaleY + tileSpacing) + offsetOnScaledTile)
 
-//				tile.animate().scaleX(scaleX).scaleY(scaleY)
-//						.translationX(x).translationY(y)
-//						.setDuration(100).setStartDelay(100l + delay).setInterpolator(linear);
-//				Log.d("Animate", String.format("x=%d, y=%d, scaleX=%g, scaleY=%g, ", x, y, scaleX, scaleY))
-
 // Changed to animate each property separately, because they have different settings (e.g. delay)
 				animateFloatDelay(tile, "scaleX", scaleX, 200, 200 + delay)
 				animateFloatDelay(tile, "scaleY", scaleY, 200, 100 + delay)
@@ -486,18 +480,11 @@ class Activity15Puzzle : AppCompatActivity() {
 				val delay = 30L * i
 				val x = Math.round(tile.translationX + tileSize / 2.0)
 				val y = Math.round(tile.translationY + tileSize).toLong()
+// Changed to animate all properties together, because they have same settings (e.g. duration, delay, interpolator)
 				tile.animate().scaleX(0.1f).scaleY(0.1f)
 					.rotation(45.0f).alpha(0f)
 					.translationX(x.toFloat()).translationY(y.toFloat())
 					.setDuration(400).setStartDelay(delay).setInterpolator(inBack)
-// Changed to animate all properties together, because they have same settings (e.g. duration, delay, interpolator)
-
-//		   	animateFloatDelay(tile, "scaleX", 0.1f, 400, delay);
-//		   	animateFloatDelay(tile, "scaleY", 0.1f, 400, delay);
-//		   	animateFloatDelay(tile, "rotation", 45, 400, delay);
-//		   	animateFloatDelay(tile, "translationY", y, 400, delay, inBack);
-//		   	animateFloatDelay(tile, "translationX", x, 400, delay);
-//		   	animateFloatDelay(tile, "alpha", 0, 400, 100 + delay);
 				lastTile = tile
 			}
 
@@ -558,11 +545,9 @@ class Activity15Puzzle : AppCompatActivity() {
 				val delay = 30L * i
 				animateFloatDelay(tile, "rotation", 360f, 1000, 350, outBack)
 
-// Before adding color animation, color of tile was just set immediately
-//				tile.setBackgroundTintList(colorStateList.valueOf(/*lawngreen*/0xFF7CFC00));
-				val colorAnimation = tile.tag as ValueAnimator
-				val colorFrom = tile.backgroundTintList!!.defaultColor
-				val colorTo =  /*lawngreen*/0xFF7CFC00.toInt()
+				val colorAnimation = tile.getTag(R.id.tileColorAnimation) as ValueAnimator
+				val colorFrom = tile.getTag(R.id.tileCurColor) as Int
+				val colorTo =  /*lawngreen*/0xFF64CC00.toInt()
 				colorAnimation.setObjectValues(colorFrom, colorTo)
 				colorAnimation.setEvaluator(ArgbEvaluator())
 				colorAnimation.duration = 1000
@@ -575,9 +560,8 @@ class Activity15Puzzle : AppCompatActivity() {
 	fun animateTimeRunningOut() {
 		for ((i, tile) in tiles.withIndex())
 			if (tile != null) {
-//				tile.setBackgroundTintList(colorStateList.valueOf(/*darkorange*/0xFFFF8C00));
-				val colorAnimation = tile.tag as ValueAnimator
-				val colorFrom = tile.backgroundTintList!!.defaultColor
+				val colorAnimation = tile.getTag(R.id.tileColorAnimation) as ValueAnimator
+				val colorFrom = tile.getTag(R.id.tileCurColor) as Int
 				val colorTo =  /*darkorange*/0xFFFF8C00.toInt()
 				colorAnimation.setObjectValues(colorFrom, colorTo)
 				colorAnimation.setEvaluator(ArgbEvaluator())
@@ -593,9 +577,8 @@ class Activity15Puzzle : AppCompatActivity() {
 		for ((i, tile) in tiles.withIndex())
 			if (tile != null) {
 				val delay = 30L * i
-//				tile.setBackgroundTintList(colorStateList.valueOf(/*red*/0xFFFF0000));
-				val colorAnimation = tile.tag as ValueAnimator
-				val colorFrom = tile.backgroundTintList!!.defaultColor
+				val colorAnimation = tile.getTag(R.id.tileColorAnimation) as ValueAnimator
+				val colorFrom = tile.getTag(R.id.tileCurColor) as Int
 				val colorTo =  /*red*/0xFFFF0000.toInt()
 				colorAnimation.setObjectValues(colorFrom, colorTo)
 				colorAnimation.setEvaluator(ArgbEvaluator())
@@ -610,10 +593,9 @@ class Activity15Puzzle : AppCompatActivity() {
 		for ((i, tile) in tiles.withIndex())
 			if (tile != null) {
 				val delay = 30L * i
-//				tile.setBackgroundTintList(colorStateList.valueOf(tileFillNormalColor1));
-				val colorAnimation = tile.tag as ValueAnimator
-				val colorFrom = tile.backgroundTintList!!.defaultColor
-				val colorTo = tileFillNormalColor1
+				val colorAnimation = tile.getTag(R.id.tileColorAnimation) as ValueAnimator
+				val colorFrom = tile.getTag(R.id.tileCurColor) as Int
+				val colorTo = tileFillNormalColor2
 				colorAnimation.setObjectValues(colorFrom, colorTo)
 				colorAnimation.setEvaluator(ArgbEvaluator())
 				colorAnimation.duration = 1000
@@ -660,10 +642,9 @@ class Activity15Puzzle : AppCompatActivity() {
 //---------------------------  Realization of Property Animation   -----------------------------
 
 
-	fun animateFloatDelay(
-			target: View, propertyName: String,
-			value: Float, duration_ms: Long, delay_ms: Long,
-			interpolator: TimeInterpolator = linear): ObjectAnimator {
+	fun animateFloatDelay(target: View, propertyName: String,
+		                   value: Float, duration_ms: Long, delay_ms: Long,
+		                   interpolator: TimeInterpolator = linear): ObjectAnimator {
 
 		val objectAnimator = ObjectAnimator.ofFloat(target, propertyName, value)
 		objectAnimator.duration = duration_ms
