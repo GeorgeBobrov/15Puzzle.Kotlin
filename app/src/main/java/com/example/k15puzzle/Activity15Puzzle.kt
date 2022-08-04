@@ -32,9 +32,6 @@ class Activity15Puzzle : AppCompatActivity() {
 	var spaceX: Long = 0
 	var spaceY: Long = 0
 
-	val tileFillNormalColor1 = 0xFFFFE4C4.toInt() //bisque
-	val tileFillNormalColor2 = 0xFFABE024.toInt()
-
 	var lastResizeTime: Long = 0
 	var lastTapTime: Long = 0
 	var closingAnimation = false
@@ -141,23 +138,26 @@ class Activity15Puzzle : AppCompatActivity() {
 
 			newTile.text = (i + 1).toString()
 
+			val colorTileNormal1 = resources.getColor(R.color.colorTileNormal1)
+			val colorTileNormal2 = resources.getColor(R.color.colorTileNormal2)
+
 // Animating background of tile, one color of gradient
 			val colorAnimation = ValueAnimator()
 			colorAnimation.addUpdateListener { animator ->
 				val color = animator.animatedValue as Int
 				val gradientDrawable = newTile.background as GradientDrawable
-				gradientDrawable.colors = intArrayOf(tileFillNormalColor1, color)
+				gradientDrawable.colors = intArrayOf(colorTileNormal1, color)
 
 				newTile.setTag(R.id.tileCurColor, color)
 			}
 
 			newTile.setTag(R.id.tileColorAnimation, colorAnimation)
-			newTile.setTag(R.id.tileCurColor, tileFillNormalColor2)
+			newTile.setTag(R.id.tileCurColor, colorTileNormal2)
 
 			val gradientDrawable = GradientDrawable(
-				GradientDrawable.Orientation.TL_BR, intArrayOf(tileFillNormalColor1, tileFillNormalColor2))
+				GradientDrawable.Orientation.TL_BR, intArrayOf(colorTileNormal1, colorTileNormal2))
 			gradientDrawable.cornerRadius = 4f
-			gradientDrawable.setStroke(8, 0xFFE55555.toInt())
+			gradientDrawable.setStroke(8, resources.getColor(R.color.colorTileStroke))
 
 			newTile.setBackground(gradientDrawable)
 
@@ -547,7 +547,7 @@ class Activity15Puzzle : AppCompatActivity() {
 
 				val colorAnimation = tile.getTag(R.id.tileColorAnimation) as ValueAnimator
 				val colorFrom = tile.getTag(R.id.tileCurColor) as Int
-				val colorTo =  /*lawngreen*/0xFF64CC00.toInt()
+				val colorTo = resources.getColor(R.color.colorPuzzleMatched)
 				colorAnimation.setObjectValues(colorFrom, colorTo)
 				colorAnimation.setEvaluator(ArgbEvaluator())
 				colorAnimation.duration = 1000
@@ -562,7 +562,7 @@ class Activity15Puzzle : AppCompatActivity() {
 			if (tile != null) {
 				val colorAnimation = tile.getTag(R.id.tileColorAnimation) as ValueAnimator
 				val colorFrom = tile.getTag(R.id.tileCurColor) as Int
-				val colorTo =  /*darkorange*/0xFFFF8C00.toInt()
+				val colorTo = resources.getColor(R.color.colorTimeRunningOut)
 				colorAnimation.setObjectValues(colorFrom, colorTo)
 				colorAnimation.setEvaluator(ArgbEvaluator())
 				colorAnimation.duration = 150
@@ -579,7 +579,7 @@ class Activity15Puzzle : AppCompatActivity() {
 				val delay = 30L * i
 				val colorAnimation = tile.getTag(R.id.tileColorAnimation) as ValueAnimator
 				val colorFrom = tile.getTag(R.id.tileCurColor) as Int
-				val colorTo =  /*red*/0xFFFF0000.toInt()
+				val colorTo = resources.getColor(R.color.colorTimeOver)
 				colorAnimation.setObjectValues(colorFrom, colorTo)
 				colorAnimation.setEvaluator(ArgbEvaluator())
 				colorAnimation.duration = 1000
@@ -595,7 +595,7 @@ class Activity15Puzzle : AppCompatActivity() {
 				val delay = 30L * i
 				val colorAnimation = tile.getTag(R.id.tileColorAnimation) as ValueAnimator
 				val colorFrom = tile.getTag(R.id.tileCurColor) as Int
-				val colorTo = tileFillNormalColor2
+				val colorTo = resources.getColor(R.color.colorTileNormal2)
 				colorAnimation.setObjectValues(colorFrom, colorTo)
 				colorAnimation.setEvaluator(ArgbEvaluator())
 				colorAnimation.duration = 1000
