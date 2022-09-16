@@ -190,7 +190,9 @@ class Activity15Puzzle : AppCompatActivity() {
 		val wasMoved: Boolean =
 			tryMoveTile(actualPosition(senderTile), maxMoveAniDuration, waitAnimationEnd = false).await()
 		if (wasMoved)
-			checkPuzzleMatched()
+			runOnUiThread {
+				checkPuzzleMatched()
+			}
 	}
 
 
